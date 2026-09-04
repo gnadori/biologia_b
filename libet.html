@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Libet-óra Kísérlet</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #1a1a1a;
+      color: #eaeaea;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      margin: 0;
+    }
+    h1 {
+      margin-bottom: 8px;
+      font-size: 1.5rem;
+    }
+    #instructions {
+      max-width: 600px;
+      text-align: center;
+      font-size: 0.95rem;
+      color: #aaa;
+      margin-bottom: 20px;
+      min-height: 48px;
+    }
+    canvas {
+      background-color: #111;
+      border: 2px solid #333;
+      border-radius: 50%;
+      cursor: default;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    select, button {
+      background: #2a2a2a;
+      color: #fff;
+      border: 1px solid #444;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover, select:hover {
+      background: #383838;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    #results-table {
+      margin-top: 24px;
+      width: 100%;
+      max-width: 650px;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    #results-table th, #results-table td {
+      border: 1px solid #333;
+      padding: 6px 10px;
+      text-align: center;
+    }
+    #results-table th {
+      background-color: #262626;
+      color: #00bcd4;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Libet-óra Kísérlet</h1>
+  <div id="instructions">Válassz feltételt, kattints az "Indítás" gombra, várj legalább egy teljes fordulatot, majd nyomd meg a SZÓKÖZT, amikor érzed a késztetést.</div>
+
+  <canvas id="clockCanvas" width="400" height="400"></canvas>
+
+  <div class="controls">
+    <label for="conditionSelect">Feltétel: </label>
+    <select id="conditionSelect">
+      <option value="W">W: A szándék / késztetés tudatosulása</option>
+      <option value="M">M: A fizikai mozgás tudatosulása</option>
+    </select>
+    <button id="btnStart">Indítás</button>
+    <button id="btnExport" disabled>CSV letöltése</button>
+  </div>
+
+  <table id="results-table">
+    <thead>
+      <tr>
+        <th>Próba</th>
+        <th>Feltétel</th>
+        <th>Gombnyomás ideje (ms)</th>
+        <th>Jelzett időpont (ms)</th>
+        <th>Eltérés Δt (ms)</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <script>
+    const canvas = document.getElementById("clockCanvas");
+    const ctx = canvas.getContext("2d");
+    const btnStart = document.getElementById("btnStart");
+    const btnExport = document.getElementById("btnExport");
+    const conditionSelect = document.getElementById("conditionSelect");
+    const instructions = document.getElementById("instructions");
+    const tableBody = document.getElementById("tableBody");
+
+    const CENTER = 200;
+    const RADIUS = 150;
+    const PERIOD = 2560; // Eredeti Libet-periódus: 2,56 másodperc körönként
+    const TWO_PI = Math.PI * 2;
+
+    let state = 'IDLE';
+    let startTime = 0;
+    let actualPressAngle = null;
+    let actualPressTime = 0;
+    let currentAngle = -Math.PI / 2;
+    let postPressDelayTimeout = null;
+    let trials = [];
+
+    function drawClockFace() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Külső körvonal
+      ctx.beginPath();
+      ctx.arc(CENTER, CENTER, RADIUS, 0, TWO_PI);
+      ctx.strokeStyle = "#444";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 60 osztásjel (~43 ms intervallumonként)
+      for (let i = 0; i < 60; i++) {
+        const tickAngle = (i / 60) * TWO_PI - Math.PI / 2;
+        const isMajor = i % 5 === 0;
+        const len = isMajor ? 12 : 6;
+        const r1 = RADIUS;
+        const r2 = RADIUS - len;
+
+        ctx.beginPath();
+        ctx.moveTo(CENTER + Math.cos(tickAngle) * r1, CENTER + Math.sin(tickAngle) * r1);
+        ctx.lineTo(CENTER + Math.cos(tickAngle) * r2, CENTER + Math.sin(tickAngle) * r2);
+        ctx.strokeStyle = isMajor ? "#aaa" : "#555";
+        ctx.lineWidth = isMajor ? 2 : 1;
+        ctx.stroke();
+
+        // 5-ös osztásonkénti számozás (0, 5, 10... 55)
+        if (isMajor) {
+          const rText = RADIUS - 22;
+          const tx = CENTER + Math.cos(tickAngle) * rText;
+          const ty = CENTER + Math.sin(tickAngle) * rText;
+          ctx.fillStyle = "#888";
+          ctx.font = "11px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(i.toString(), tx, ty);
+        }
+      }
+    }
+
+    function drawDot(angle, color = "#00e5ff") {
+      const dotX = CENTER + Math.cos(angle) * (RADIUS - 20);
+      const dotY = CENTER + Math.sin(angle) * (RADIUS - 20);
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 6, 0, TWO_PI);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function loop(timestamp) {
+      if (state === 'RUNNING' || state === 'WAITING_STOP') {
+        const elapsed = timestamp - startTime;
+        currentAngle = ((elapsed % PERIOD) / PERIOD) * TWO_PI - (Math.PI / 2);
+
+        drawClockFace();
+        drawDot(currentAngle);
+
+        requestAnimationFrame(loop);
+      }
+    }
+
+    btnStart.addEventListener("click", () => {
+      if (state !== 'IDLE') return;
+      state = 'RUNNING';
+      btnStart.disabled = true;
+      conditionSelect.disabled = true;
+      actualPressAngle = null;
+      actualPressTime = 0;
+      canvas.style.cursor = "default";
+
+      instructions.textContent = "Várj legalább egy teljes kört! Amikor késztetést érzel, nyomd le a SZÓKÖZT.";
+      startTime = performance.now();
+      requestAnimationFrame(loop);
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && state === 'RUNNING') {
+        e.preventDefault();
+        const now = performance.now();
+        
+        if (now - startTime < PERIOD) {
+          instructions.textContent = "Túl gyors! Várj meg legalább egy teljes fordulatot a gombnyomás előtt.";
+          return;
+        }
+
+        state = 'WAITING_STOP';
+        actualPressTime = now;
+        actualPressAngle = currentAngle;
+
+        // Véletlenszerű 1000–1800 ms késleltetés a vizuális utókép rögzülésének elkerülésére
+        const randomDelay = 1000 + Math.random() * 800;
+        postPressDelayTimeout = setTimeout(() => {
+          state = 'REPORTING';
+          drawClockFace();
+          canvas.style.cursor = "crosshair";
+          const cond = conditionSelect.value;
+          instructions.textContent = cond === 'W' 
+            ? "KATTINTS az óralap azon pontjára, ahol a pont járt, amikor ELŐSZÖR megérezted a késztetést!"
+            : "KATTINTS az óralap azon pontjára, ahol a pont járt, amikor az ujjad TÉNYLEGESEN megnyomta a billentyűt!";
+        }, randomDelay);
+      }
+    });
+
+    canvas.addEventListener("click", (e) => {
+      if (state !== 'REPORTING') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left - CENTER;
+      const clickY = e.clientY - rect.top - CENTER;
+
+      let reportedAngle = Math.atan2(clickY, clickX);
+
+      const normReported = (reportedAngle + (Math.PI / 2) + TWO_PI) % TWO_PI;
+      const normPress = (actualPressAngle + (Math.PI / 2) + TWO_PI) % TWO_PI;
+
+      let diff = normReported - normPress;
+      if (diff > Math.PI) diff -= TWO_PI;
+      if (diff < -Math.PI) diff += TWO_PI;
+
+      const deltaMs = Math.round((diff / TWO_PI) * PERIOD);
+
+      drawClockFace();
+      drawDot(actualPressAngle, "rgba(255, 255, 255, 0.4)"); // Tényleges lenyomás
+      drawDot(reportedAngle, "#ff4081"); // Jelzett pozíció
+
+      recordTrial(conditionSelect.value, Math.round(actualPressTime - startTime), deltaMs);
+
+      state = 'IDLE';
+      btnStart.disabled = false;
+      conditionSelect.disabled = false;
+      canvas.style.cursor = "default";
+      instructions.textContent = `Mérés rögzítve! Eltérés: ${deltaMs} ms (a negatív érték a cselekvés előtti észlelést jelzi). Kész a következő körre.`;
+    });
+
+    function recordTrial(condition, pressTimeMs, lagMs) {
+      const trialNum = trials.length + 1;
+      const trialData = { trialNum, condition, pressTimeMs, lagMs };
+      trials.push(trialData);
+
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${trialNum}</td>
+        <td>${condition}</td>
+        <td>${pressTimeMs}</td>
+        <td>${pressTimeMs + lagMs}</td>
+        <td style="color: ${lagMs < 0 ? '#4caf50' : '#ff9800'}">${lagMs}</td>
+      `;
+      tableBody.appendChild(row);
+      btnExport.disabled = false;
+    }
+
+    btnExport.addEventListener("click", () => {
+      let csv = "data:text/csv;charset=utf-8,Proba,Feltetel,Gombnyomas_ms,Jelzett_ms,Delta_Elteres_ms\n";
+      trials.forEach(t => {
+        csv += `${t.trialNum},${t.condition},${t.pressTimeMs},${t.pressTimeMs + t.lagMs},${t.lagMs}\n`;
+      });
+      const encodedUri = encodeURI(csv);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "libet_kiserlet_adatok.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    drawClockFace();
+  </script>
+</body>
+</html>
