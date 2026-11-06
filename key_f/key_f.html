@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What Happens in the Brain When You Press 'F' | 3D Neuro-Motor Dynamics</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX CSS & JS for rendered mathematical/chemical notation -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- TOP NAVBAR -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">🧠</div>
+      <div>
+        <h1 id="brand-title" class="brand-title">Az „F” billentyű neurodinamikája</h1>
+        <p id="brand-subtitle" class="brand-subtitle">Elosztott neurális hurok • 165 ms késleltetés • Ellenoldali vezérlés</p>
+      </div>
+    </div>
+
+    <!-- Central Interactive 'F' Key Trigger -->
+    <div class="key-trigger-container">
+      <button id="big-f-trigger" class="strike-f-keycap" title="Kattints vagy nyomd meg az 'F' billentyűt a szimuláció indításához!">
+        <span class="keycap-letter">F</span>
+        <span class="keycap-nib" title="Tapintási tájékozódási bütyök az 'F' billentyűn"></span>
+      </button>
+      <div class="keycap-caption">
+        <div><strong id="keycap-caption-title">ÜSD LE AZ „F” BILLENTYŰT</strong></div>
+        <div id="keycap-caption-sub">Nyomd meg az <kbd>F</kbd>-et a billentyűzeten</div>
+      </div>
+    </div>
+
+    <!-- Right Controls -->
+    <div class="navbar-right">
+      <!-- Language Selector -->
+      <div class="lang-selector-group">
+        <button id="btn-lang-hu" class="lang-pill active" title="Magyar nyelv">🇭🇺 HU</button>
+        <button id="btn-lang-en" class="lang-pill" title="English language">🇬🇧 EN</button>
+      </div>
+
+      <div id="hud-ms-counter" class="hud-ms-badge">T + 0 ms</div>
+      <button id="btn-sound-toggle" class="btn-icon">
+        <span>🔊</span>
+        <span id="sound-label" class="sound-label">Hang: BE</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT & DETAILS -->
+  <main class="main-layout">
+    
+    <!-- 3D ANATOMICAL VIEWPORT -->
+    <section class="canvas-3d-wrapper">
+      <div id="canvas-3d-container"></div>
+      <div id="tooltip-3d" class="tooltip-3d"></div>
+
+      <!-- Viewport Stage Tag & Title Overlay -->
+      <div class="viewport-hud">
+        <div class="hud-title-box">
+          <div class="hud-tag">Active Anatomical Domain</div>
+          <div id="hud-stage-name" class="hud-stage-name">Right Prefrontal & Parietal Cortex</div>
+        </div>
+      </div>
+
+      <!-- Hierarchical Layer and Subregion Toggles (Top-Right) -->
+      <div class="layer-toggles-panel">
+        <div class="layer-toggle-header">
+          <span id="layer-toggle-title" class="layer-toggle-title">Rétegek és szubrégiók</span>
+          <button id="btn-xray-toggle" class="xray-btn" title="Áttetsző röntgen nézet a mély szubrégiók felfedésére">🔍 X-Ray</button>
+        </div>
+        
+        <div class="layer-hierarchy">
+          
+          <!-- Group 1: Cortex -->
+          <div class="layer-group">
+            <div class="layer-group-header">
+              <label class="layer-group-label">
+                <input type="checkbox" class="layer-toggle" data-layer="cortex" checked>
+                <span class="group-title" data-i18n-key="cortex">Agykéreg (Cortex)</span>
+              </label>
+              <button class="layer-group-toggle expanded" data-group="cortex">▶</button>
+            </div>
+            <div class="layer-subregions open" data-group="cortex">
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="dlPFC" checked><span class="subregion-dot" style="background:#38bdf8;"></span><span class="sub-name" data-i18n-sub="dlPFC">dlPFC (BA 9/46)</span></span>
+                <button class="btn-focus-sub" data-focus="cortex" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="acc" checked><span class="subregion-dot" style="background:#ec4899;"></span><span class="sub-name" data-i18n-sub="acc">ACC (BA 24/32)</span></span>
+                <button class="btn-focus-sub" data-focus="cortex" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="ppc" checked><span class="subregion-dot" style="background:#a855f7;"></span><span class="sub-name" data-i18n-sub="ppc">PPC (BA 5/7)</span></span>
+                <button class="btn-focus-sub" data-focus="cortex" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="sma" checked><span class="subregion-dot" style="background:#f59e0b;"></span><span class="sub-name" data-i18n-sub="sma">SMA / Premotor (BA 6)</span></span>
+                <button class="btn-focus-sub" data-focus="cortex" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="rightM1" checked><span class="subregion-dot" style="background:#ef4444;"></span><span class="sub-name" data-i18n-sub="rightM1">M1 Kézkiemelkedés</span></span>
+                <button class="btn-focus-sub" data-focus="cortex" title="Fókuszálás">🎯</button>
+              </label>
+            </div>
+          </div>
+
+          <!-- Group 2: Basal Ganglia & Thalamus -->
+          <div class="layer-group">
+            <div class="layer-group-header">
+              <label class="layer-group-label">
+                <input type="checkbox" class="layer-toggle" data-layer="basal" checked>
+                <span class="group-title" data-i18n-key="basal">Törzsdúcok és Talamusz</span>
+              </label>
+              <button class="layer-group-toggle expanded" data-group="basal">▶</button>
+            </div>
+            <div class="layer-subregions open" data-group="basal">
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="striatum" checked><span class="subregion-dot" style="background:#facc15;"></span><span class="sub-name" data-i18n-sub="striatum">Striatum (Caudatus/Putamen)</span></span>
+                <button class="btn-focus-sub" data-focus="basal" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="globusPallidus" checked><span class="subregion-dot" style="background:#f97316;"></span><span class="sub-name" data-i18n-sub="globusPallidus">Globus Pallidus (GPi/GPe)</span></span>
+                <button class="btn-focus-sub" data-focus="basal" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="subthalamic" checked><span class="subregion-dot" style="background:#ec4899;"></span><span class="sub-name" data-i18n-sub="subthalamic">Subthalamicus mag (STN)</span></span>
+                <button class="btn-focus-sub" data-focus="basal" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="thalamus" checked><span class="subregion-dot" style="background:#10b981;"></span><span class="sub-name" data-i18n-sub="thalamus">VL / VA Talamusz</span></span>
+                <button class="btn-focus-sub" data-focus="basal" title="Fókuszálás">🎯</button>
+              </label>
+            </div>
+          </div>
+
+          <!-- Group 3: Cerebellum -->
+          <div class="layer-group">
+            <div class="layer-group-header">
+              <label class="layer-group-label">
+                <input type="checkbox" class="layer-toggle" data-layer="cerebellum" checked>
+                <span class="group-title" data-i18n-key="cerebellum">Bal kisagyfélteke</span>
+              </label>
+              <button class="layer-group-toggle expanded" data-group="cerebellum">▶</button>
+            </div>
+            <div class="layer-subregions open" data-group="cerebellum">
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="leftCerebellum" checked><span class="subregion-dot" style="background:#06b6d4;"></span><span class="sub-name" data-i18n-sub="leftCerebellum">Kisagyi félteke kéreg</span></span>
+                <button class="btn-focus-sub" data-focus="cerebellum" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="dentateNucleus" checked><span class="subregion-dot" style="background:#38bdf8;"></span><span class="sub-name" data-i18n-sub="dentateNucleus">Dentatus mag (Mélyszerkezet)</span></span>
+                <button class="btn-focus-sub" data-focus="cerebellum" title="Fókuszálás">🎯</button>
+              </label>
+            </div>
+          </div>
+
+          <!-- Group 4: Brainstem & Spine -->
+          <div class="layer-group">
+            <div class="layer-group-header">
+              <label class="layer-group-label">
+                <input type="checkbox" class="layer-toggle" data-layer="brainstem" checked>
+                <span class="group-title" data-i18n-key="brainstem">Agytörzs és gerincvelő</span>
+              </label>
+              <button class="layer-group-toggle expanded" data-group="brainstem">▶</button>
+            </div>
+            <div class="layer-subregions open" data-group="brainstem">
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="medullaPyramid" checked><span class="subregion-dot" style="background:#38bdf8;"></span><span class="sub-name" data-i18n-sub="medullaPyramid">Nyúltvelői piramisok</span></span>
+                <button class="btn-focus-sub" data-focus="decussation" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="decussationTract" checked><span class="subregion-dot" style="background:#ef4444;"></span><span class="sub-name" data-i18n-sub="decussationTract">Piramiskereszteződés (~90%)</span></span>
+                <button class="btn-focus-sub" data-focus="decussation" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="cervicalEnlargement" checked><span class="subregion-dot" style="background:#22d3ee;"></span><span class="sub-name" data-i18n-sub="cervicalEnlargement">C7–T1 Rexed lamina IX</span></span>
+                <button class="btn-focus-sub" data-focus="spine" title="Fókuszálás">🎯</button>
+              </label>
+            </div>
+          </div>
+
+          <!-- Group 5: Nerves, Hand & Keyboard -->
+          <div class="layer-group">
+            <div class="layer-group-header">
+              <label class="layer-group-label">
+                <input type="checkbox" class="layer-toggle" data-layer="nerves" checked>
+                <span class="group-title" data-i18n-key="nerves">Periféria, Kéz & Billentyűzet</span>
+              </label>
+              <button class="layer-group-toggle expanded" data-group="nerves">▶</button>
+            </div>
+            <div class="layer-subregions open" data-group="nerves">
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="brachialPlexus" checked><span class="subregion-dot" style="background:#10b981;"></span><span class="sub-name" data-i18n-sub="brachialPlexus">Karfonat (Plexus brachialis)</span></span>
+                <button class="btn-focus-sub" data-focus="hand" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="medianNerve" checked><span class="subregion-dot" style="background:#34d399;"></span><span class="sub-name" data-i18n-sub="medianNerve">Nervus medianus</span></span>
+                <button class="btn-focus-sub" data-focus="hand" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="forearmMuscles" checked><span class="subregion-dot" style="background:#f43f5e;"></span><span class="sub-name" data-i18n-sub="forearmMuscles">Hajlítóizmok (FDS/FDP)</span></span>
+                <button class="btn-focus-sub" data-focus="hand" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="indexFinger" checked><span class="subregion-dot" style="background:#38bdf8;"></span><span class="sub-name" data-i18n-sub="indexFinger">Bal mutatóujj (Digit II)</span></span>
+                <button class="btn-focus-sub" data-focus="hand" title="Fókuszálás">🎯</button>
+              </label>
+              <label class="subregion-item">
+                <span class="subregion-left"><input type="checkbox" class="subregion-toggle" data-sub="fKeySwitch" checked><span class="subregion-dot" style="background:#0284c7;"></span><span class="sub-name" data-i18n-sub="fKeySwitch">„F” kapcsoló & tapintási bütyök</span></span>
+                <button class="btn-focus-sub" data-focus="hand" title="Fókuszálás">🎯</button>
+              </label>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Navigation Hint -->
+      <div class="nav-hint">
+        🖱 Left-drag: Rotate • Right-drag: Pan • Scroll: Zoom • Hover on 3D structures for labels
+      </div>
+
+      <!-- Camera Presets Bar (Bottom of 3D Canvas) -->
+      <nav class="camera-presets-bar">
+        <button class="camera-preset-btn" data-preset="whole">🌐 Whole Loop</button>
+        <button class="camera-preset-btn" data-preset="cortex">🧠 Prefrontal</button>
+        <button class="camera-preset-btn" data-preset="basal">⚡ Basal Ganglia</button>
+        <button class="camera-preset-btn" data-preset="cerebellum">🔄 Cerebellum</button>
+        <button class="camera-preset-btn" data-preset="decussation">🔀 Medullary Decussation</button>
+        <button class="camera-preset-btn" data-preset="spine">🧬 C7-T1 Synapse</button>
+        <button class="camera-preset-btn" data-preset="hand">⌨️ Left Hand & 'F' Key</button>
+      </nav>
+    </section>
+
+    <!-- SIDE PANEL: Microscopic Visualizer & Deep Dive -->
+    <aside class="side-panel">
+      
+      <!-- Stage Header Card -->
+      <div class="stage-header-card">
+        <div class="stage-badges-row">
+          <span id="stage-number-badge" class="badge badge-stage">STAGE 1 OF 8</span>
+          <span id="stage-timer-badge" class="badge badge-timer">T+0 to T+25 ms</span>
+        </div>
+        <h2 id="stage-main-title" class="stage-main-title">Goal Formation & Spatial Coordinate Transformation</h2>
+        <div id="stage-subtitle" class="stage-subtitle">Prefrontal & Parietal Cortex</div>
+      </div>
+
+      <!-- Microscopic / Circuit Canvas View -->
+      <div class="micro-view-wrapper">
+        <div class="micro-view-header">
+          <span>🔬 MICROSCOPIC / CIRCUIT MECHANISM</span>
+          <span style="color: var(--cyan-primary);">LIVE SIMULATION</span>
+        </div>
+        <div id="micro-canvas-container"></div>
+      </div>
+
+      <!-- Active Anatomical Structures -->
+      <div>
+        <div class="section-title">Critical Anatomical Substrates</div>
+        <div id="structures-list" class="structures-grid"></div>
+      </div>
+
+      <!-- Narrative Description -->
+      <div>
+        <div class="section-title">Neurophysiological Process</div>
+        <div id="stage-description-text" class="narrative-block"></div>
+      </div>
+
+      <!-- Key Scientific Takeaways -->
+      <div class="takeaways-box">
+        <div class="section-title" style="color: var(--green-accent); margin-bottom: 6px;">Key Neurodynamic Highlights</div>
+        <ul id="key-takeaways-list"></ul>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- BOTTOM TIMELINE & PLAYBACK CONTROLS -->
+  <footer class="bottom-controls-bar">
+    
+    <!-- Progress Bar -->
+    <div class="timeline-track-container">
+      <div id="timeline-progress-bar" class="timeline-progress-bar"></div>
+    </div>
+
+    <!-- 8 Discrete Stage Buttons -->
+    <div id="timeline-stages" class="timeline-stages-row"></div>
+
+    <!-- Controls Row: Play, Prev, Next, Speed Selection -->
+    <div class="playback-controls-row">
+      
+      <div class="playback-buttons">
+        <button id="btn-restart" class="btn-ctrl" title="Restart to Stage 1">⏮ Restart</button>
+        <button id="btn-prev" class="btn-ctrl" title="Previous Stage (ArrowLeft)">◀ Prev</button>
+        <button id="btn-play" class="btn-ctrl btn-primary" title="Play / Pause (Spacebar)"><span class="icon">▶</span> Play</button>
+        <button id="btn-next" class="btn-ctrl" title="Next Stage (ArrowRight)">Next ▶</button>
+      </div>
+
+      <div class="speed-selector-group">
+        <span>Simulation Speed:</span>
+        <div class="speed-buttons">
+          <button class="speed-btn active" data-speed="0.05">0.05x (Detailed)</button>
+          <button class="speed-btn" data-speed="0.1">0.1x (Smooth)</button>
+          <button class="speed-btn" data-speed="0.25">0.25x (Fast)</button>
+          <button class="speed-btn" data-speed="1.0">1.0x (Real-time 160ms)</button>
+        </div>
+      </div>
+
+    </div>
+
+  </footer>
+
+  <!-- Application Scripts -->
+  <script src="js/stages-data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/micro-views.js"></script>
+  <script src="js/brain-model.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
